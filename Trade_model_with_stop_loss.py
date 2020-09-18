@@ -176,7 +176,7 @@ def _get_obs(stock_owned, stock_price, cash_in_hand):
 def flatten_position(contract, price):
     positions = ib.positions()
     for each in positions:
-        if each.contract.right != contract.right:
+        if each.contract.right != contract.right or each.contract.symbol != "ES":  # only flatten ES 
             continue
         ib.qualifyContracts(each.contract)
         if each.position > 0: # Number of active Long positions
