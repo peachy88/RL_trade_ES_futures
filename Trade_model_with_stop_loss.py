@@ -43,6 +43,10 @@ session = InteractiveSession(config=config)
 # util.startLoop()
 
 
+ibport = 7497
+account = ""
+
+
 class get_data:
 
     def next_exp_weekday(self):
@@ -61,8 +65,7 @@ class get_data:
         return date_to_return.strftime('%Y%m%d')
 
     def get_strikes_and_expiration(self):
-        ES = Future(symbol='ES', lastTradeDateOrContractMonth='20200918', exchange='GLOBEX',
-                                currency='USD')
+        ES = ibis.Contract(exchange = "GLOBEX", secType = "CONTFUT", symbol = "ES")
         ib.qualifyContracts(ES)
         expiration = self.next_weekday(datetime.today(), self.next_exp_weekday())
         chains = ib.reqSecDefOptParams(underlyingSymbol='ES', futFopExchange='GLOBEX', underlyingSecType='FUT',underlyingConId=ES.conId)
@@ -231,8 +234,9 @@ def trade(ES, hasNewBar=None):
     stock_owned, call_contract, put_contract = option_position()
     # print(f'call bid price = {call_option_price.bid}, put bid price = {put_option_price.bid}')
     model.load_weights(name)
-    cash_in_hand = float(ib.accountSummary()[22].value)
-    portolio_value = float(ib.accountSummary()[29].value)
+    df = util.df(ib.accountSummary(account))
+    cash_in_hand = float(df.loc[df.tag == 'TotalCashValue'].iat[0, 2])
+    portfolio_value = float(df.loc[df.tag == 'NetLiquidation'].iat[0, 2])
 
     call_contract_price = (call_option_price.ask + call_option_price.bid)/2
     put_contract_price = (put_option_price.ask + put_option_price.bid)/2
@@ -271,7 +275,9 @@ def trade(ES, hasNewBar=None):
                 ib.qualifyContracts(contract)
                 price = call_option_price if i == 0 else put_option_price
                 flatten_position(contract, price)
-            cash_in_hand = float(ib.accountSummary()[5].value)
+            df = util.df(ib.accountSummary(account))
+            cash_in_hand = float(df.loc[df.tag == 'TotalCashValue'].iat[0, 2])
+            portfolio_value = float(df.loc[df.tag == 'NetLiquidation'].iat[0, 2])
             stock_owned, call_contract, put_contract = option_position()
     
     if buy_index:
@@ -307,7 +313,8 @@ def trade(ES, hasNewBar=None):
                   
                     print('out of loop')
                     stock_owned, call_contract, put_contract = option_position()
-                    cash_in_hand = float(ib.accountSummary()[5].value)
+                    df = util.df(ib.accountSummary(account))
+                    cash_in_hand = float(df.loc[df.tag == 'TotalCashValue'].iat[0, 2])
                     can_buy = False
                 else:
                   can_buy = False
@@ -321,12 +328,13 @@ if __name__ == "__main__":
     global put_option_price
     global stock_owned
     from ib_insync import *
+    import ib_insync as ibis
     import talib as ta
     from talib import MA_Type
 
-    ib = IB()
+    ib = ibis.IB()
     ib.disconnect()
-    ib.connect('127.0.0.1', 7497, clientId=np.random.randint(10, 1000))
+    ib.connect('127.0.0.1', ibport, clientId=np.random.randint(10, 1000))
     path = os.getcwd() 
    
     # config
@@ -350,8 +358,7 @@ if __name__ == "__main__":
     interval = '1 min'
     res = get_data()
 
-    ES = Future(symbol='ES', lastTradeDateOrContractMonth='20200918', exchange='GLOBEX',
-                                currency='USD')
+    ES = ibis.Contract(exchange = "GLOBEX", secType = "CONTFUT", symbol = "ES")
     ib.qualifyContracts(ES)
     ES = ib.reqHistoricalData(contract=ES, endDateTime='', durationStr=No_days,
                                  barSizeSetting=interval, whatToShow = 'TRADES', useRTH = False, keepUpToDate=True)
